@@ -25,6 +25,9 @@ public abstract class AbstractTest {
 		try (Scanner scanner = new Scanner(this.getResource(outputFilename))) {
 			while (scanner.hasNext()) {
 				output.append(scanner.nextLine());
+				if (scanner.hasNext()) {
+					output.append('\n');
+				}
 			}
 		}
 

@@ -67,6 +67,54 @@ public class IsoContest {
 				.toString();
 	}
 
+	public String solveFlocons(InputStream input) {
+		Integer size = null;
+		String line = null;
+
+		try (Scanner sc = new Scanner(input)) {
+			while (sc.hasNextLine()) {
+				line = sc.nextLine();
+				/* Lisez les données et effectuez votre traitement */
+				if (size == null) {
+					size = Integer.parseInt(line);
+				}
+			}
+		}
+
+		/*
+		 * Vous pouvez aussi effectuer votre traitement une fois que vous avez
+		 * lu toutes les données.
+		 */
+		Integer halfSize = Double.valueOf(Math.floor(size / 2d)).intValue();
+		Integer startColumn = halfSize;
+		Integer width = 0;
+
+		StringBuilder output = new StringBuilder();
+		for (int row = 0; row < size; ++row) {
+			if (row > 0) {
+				output.append('\n');
+			}
+
+			for (int column = 0; column < size; ++column) {
+				if (column < startColumn || column > startColumn + width) {
+					output.append('.');
+				} else {
+					output.append('*');
+				}
+			}
+
+			if (row < halfSize) {
+				startColumn -= 1;
+				width += 2;
+			} else {
+				startColumn += 1;
+				width -= 2;
+			}
+		}
+
+		return output.toString();
+	}
+
 	public String dummySolve(InputStream input) {
 		String line = null;
 
@@ -93,6 +141,6 @@ public class IsoContest {
 			input = System.in;
 		}
 
-		System.out.println(contest.solveGants(input));
+		System.out.println(contest.solveFlocons(input));
 	}
 }
