@@ -9,10 +9,19 @@ package com.isograd.exercise;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class IsoContest {
@@ -20,6 +29,9 @@ public class IsoContest {
 	private static final String OK = "OK";
 
 	private static final String KO = "KO";
+
+	private static final DecimalFormat DOUBLE_FORMAT = new DecimalFormat("#.###",
+			DecimalFormatSymbols.getInstance(Locale.US));
 
 	private class Accumulator<T> extends HashMap<T, Integer> {
 		private static final long serialVersionUID = 5480917823114056491L;
@@ -205,6 +217,96 @@ public class IsoContest {
 				.anyMatch(b -> b) ? KO : OK;
 	}
 
+	private class Summit {
+		private Integer id;
+		private Map<Integer, Double> risks;
+
+		public Summit(Integer id, Set<Entry<Integer, Double>> risks) {
+			this.id = id;
+			this.risks = risks.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+		}
+
+		public Summit(Integer id, String... params) {
+			this.id = id;
+			this.risks = new HashMap<>(params.length - 1);
+
+			for (int summitIndex = 0; summitIndex < params.length; ++summitIndex) {
+				try {
+					if (summitIndex != id) {
+						this.risks.put(summitIndex, DOUBLE_FORMAT.parse(params[summitIndex]).doubleValue());
+					}
+				} catch (ParseException e) {
+					throw new IllegalArgumentException(
+							String.format("Can't parse data %s to double", params[summitIndex]), e);
+				}
+			}
+		}
+	}
+
+	private class DoubleEntryComparator implements Comparator<Entry<Integer, Double>> {
+
+		@Override
+		public int compare(Entry<Integer, Double> o1, Entry<Integer, Double> o2) {
+			return o1.getValue().compareTo(o2.getValue());
+		}
+	}
+
+	private Double findSafestPath(Integer from, Integer to, List<IsoContest.Summit> summits, Double temp) {
+		Double value;
+
+		Map<Integer, Double> risksTo = summits.stream().filter(s -> s.id.equals(to)).findFirst().get().risks;
+		Double shortestPath = risksTo.get(from);
+
+		Optional<Entry<Integer, Double>> safestSummit = risksTo.entrySet().stream()
+				.filter(entry -> entry.getKey() != from).min(new DoubleEntryComparator());
+
+		if (safestSummit.isPresent()) {
+			value = findSafestPath(from, safestSummit.get().getKey(),
+					summits.stream().filter(s -> !s.id.equals(to))
+							.map(s -> new IsoContest.Summit(s.id,
+									s.risks.entrySet().stream().filter(e -> !e.getKey().equals(to))
+											.collect(Collectors.toSet())))
+							.collect(Collectors.toList()),
+					temp * (1 - safestSummit.get().getValue()));
+		} else {
+			value = temp * (1 - shortestPath);
+		}
+
+		return value;
+	}
+
+	public String solveAvalanches(InputStream input) {
+		Integer count = null;
+		Integer from = null;
+		Integer to = null;
+
+		String line;
+		List<IsoContest.Summit> summits = null;
+
+		try (Scanner sc = new Scanner(input)) {
+			Integer summitId = 0;
+			while (sc.hasNextLine()) {
+				line = sc.nextLine();
+				/* Lisez les données et effectuez votre traitement */
+
+				if (count == null) {
+					count = Integer.parseInt(line);
+					summits = new ArrayList<>(count);
+				} else if (from == null) {
+					String[] temp = line.split("\\s");
+
+					from = Integer.parseInt(temp[0]);
+					to = Integer.parseInt(temp[1]);
+				} else {
+					summits.add(new Summit(summitId++, line.split("\\s")));
+				}
+			}
+		}
+
+		return DOUBLE_FORMAT
+				.format(Math.min(summits.get(from).risks.get(to), 1 - this.findSafestPath(from, to, summits, 1.0d)));
+	}
+
 	public String dummySolve(InputStream input) {
 		String line = null;
 
@@ -231,6 +333,6 @@ public class IsoContest {
 			input = System.in;
 		}
 
-		System.out.println(contest.solveTopographie(input));
+		System.out.println(contest.solveAvalanches(input));
 	}
 }
