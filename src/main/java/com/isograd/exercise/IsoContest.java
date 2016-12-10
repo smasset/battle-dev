@@ -20,8 +20,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.PriorityQueue;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 public class IsoContest {
@@ -169,8 +172,8 @@ public class IsoContest {
 	}
 
 	private class Circle {
-		private Position center = null;
-		private Integer radius = null;
+		protected Position center = null;
+		protected Integer radius = null;
 
 		public Circle(String... params) {
 			this.center = new Position(Integer.valueOf(params[0]), Integer.valueOf(params[1]));
@@ -182,6 +185,12 @@ public class IsoContest {
 			Integer maxRadius = Math.max(this.radius, other.radius);
 			Integer minRadius = Math.min(this.radius, other.radius);
 			return distance >= maxRadius - minRadius && distance <= maxRadius + minRadius;
+		}
+
+		public boolean contains(Circle other) {
+			Double distance = this.center.getDistanceTo(other.center);
+			return distance < Math.abs(this.radius.doubleValue() - other.radius.doubleValue())
+					&& other.radius < this.radius;
 		}
 
 		@Override
@@ -307,6 +316,99 @@ public class IsoContest {
 				.format(Math.min(summits.get(from).risks.get(to), 1 - this.findSafestPath(from, to, summits, 1.0d)));
 	}
 
+	private class Disk extends Circle implements Comparable<Disk> {
+		private Integer id = null;
+		private Integer height = null;
+		private SortedSet<Disk> path = null;
+		private Integer score = null;
+
+		public Disk(Integer id, String... params) {
+			super(params);
+			this.id = id;
+			this.height = Integer.valueOf(params[3]);
+			this.path = new TreeSet<>(new Comparator<Disk>() {
+
+				@Override
+				public int compare(Disk o1, Disk o2) {
+					return o1.radius.compareTo(o2.radius);
+				}
+			});
+		}
+
+		private Integer getHeightDifference(Disk other) {
+			return Math.abs(height - other.height);
+		}
+
+		public Integer getScore() {
+			if (score == null) {
+				score = Math.abs(this.path.isEmpty() ? this.height : this.path.last().height);
+				Disk previousDisk = this;
+
+				for (Disk currentDisk : this.path) {
+					score += currentDisk.getHeightDifference(previousDisk);
+					previousDisk = currentDisk;
+				}
+			}
+
+			return score;
+		}
+
+		public boolean contains(Disk other) {
+			return this.id != other.id && super.contains(other);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			return this.id.equals(((Disk) obj).id);
+		}
+
+		@Override
+		public int compareTo(Disk o) {
+			return o.getScore().compareTo(this.getScore());
+		}
+
+		@Override
+		public String toString() {
+			return String.format("%d %s %d %d", id, super.toString(), height, this.getScore());
+		}
+	}
+
+	private Integer getCoolestPath(List<Disk> disks) {
+		disks.forEach(d1 -> {
+			d1.path.addAll(disks.parallelStream().filter(d2 -> d2.contains(d1)).collect(Collectors.toList()));
+		});
+
+		PriorityQueue<Disk> queue = new PriorityQueue<>(disks);
+		Disk out = queue.poll();
+		Disk lastOut = out.path.isEmpty() ? out : out.path.last();
+		queue.removeIf(d -> d.path.contains(lastOut));
+
+		return out.getScore() + queue.poll().getScore();
+	}
+
+	public String solveSnowboarding(InputStream input) {
+		Integer count = null;
+		Integer id = 0;
+		String line = null;
+		List<Disk> disks = null;
+
+		try (Scanner sc = new Scanner(input)) {
+			while (sc.hasNextLine()) {
+				line = sc.nextLine();
+				/* Lisez les données et effectuez votre traitement */
+
+				if (count == null) {
+					count = Integer.parseInt(line);
+					disks = new ArrayList<>(count);
+				} else {
+					disks.add(new Disk(id++, line.split("\\s")));
+				}
+			}
+		}
+
+		return this.getCoolestPath(disks).toString();
+	}
+
 	public String dummySolve(InputStream input) {
 		String line = null;
 
@@ -333,6 +435,6 @@ public class IsoContest {
 			input = System.in;
 		}
 
-		System.out.println(contest.solveAvalanches(input));
+		System.out.println(contest.solveSnowboarding(input));
 	}
 }
